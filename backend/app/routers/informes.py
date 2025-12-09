@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from ..database import get_db
-from ..models.billing import Payment, Invoice
+from ..models.invoice import Invoice
+from ..models.payment import Payment
 from ..models.appointment import Appointment
 from ..models.client import Client
 from datetime import datetime
