@@ -7,7 +7,7 @@ from .models.appointment import Appointment
 from .models.invoice import Invoice
 from .models.payment import Payment
 from datetime import datetime, timedelta
-
+from .utils.security import hash_password
 def create_all():
     from .database import Base
     Base.metadata.create_all(bind=engine)
