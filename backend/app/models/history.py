@@ -1,4 +1,3 @@
-# backend/app/models/history.py
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
