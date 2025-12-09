@@ -1,2 +1,0 @@
-# backend/app/schemas/__init__.py
-# paquete schemas

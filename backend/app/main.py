@@ -1,4 +1,3 @@
-# backend/app/main.py
 from fastapi import FastAPI
 from .routers import clientes, mascotas, citas, facturacion, auth, informes  # importa routers aquí
 from .database import engine
