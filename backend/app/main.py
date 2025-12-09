@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from .routers import clientes, mascotas, citas, facturacion, auth, informes  # importa routers aquí
 from .database import engine
 # importa modelos para que se registren
-from .models import user, client, pet, appointment, billing
+from .models import user, client, pet, appointment
 
 app = FastAPI(title="Clínica Veterinaria - Backend")
 

@@ -4,7 +4,8 @@ from .models.client import Client, SubscriptionPlan
 from .models.pet import Pet
 from .models.user import User, Role
 from .models.appointment import Appointment
-from .models.billing import Invoice, Payment
+from .models.invoice import Invoice
+from .models.payment import Payment
 from datetime import datetime, timedelta
 
 def create_all():
