@@ -6,7 +6,7 @@ from .models.user import User, Role
 from .models.appointment import Appointment
 from .models.invoice import Invoice
 from .models.payment import Payment
-from .models.history import History
+from .models.history import MedicalHistory as History
 from .utils.security import hash_password
 from datetime import datetime, timedelta
 
@@ -60,14 +60,12 @@ def seed():
 
         # ---------- SUBSCRIPTION PLANS ----------
         existing_plans = {p.name for p in db.query(SubscriptionPlan).all()}
-        plans = []
-        if "free" not in existing_plans:
-            plans.append(SubscriptionPlan(name="free", price=0.0, description="Plan de prueba gratuito"))
-        if "standard" not in existing_plans:
-            plans.append(SubscriptionPlan(name="standard", price=9.99, description="Plan estándar"))
-        if plans:
-            db.add_all(plans)
-            db.commit()
+        plans = [
+            SubscriptionPlan(name = "free", description= "Plan de prueba gratuito.", price = 0.0, duration_days=30),
+            SubscriptionPlan(name = "basic", description= "Plan básico mensual.", price = 19.99, duration_days = 30),
+            SubscriptionPlan(name = "pro", description = "Plan profesional.", price = 49.99, duration_days=365),]
+        db.add_all(plans)
+        db.commit()
 
         # map plans
         plans_map = {p.name: p for p in db.query(SubscriptionPlan).all()}

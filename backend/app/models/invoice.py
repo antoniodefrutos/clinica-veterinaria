@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Boolean, Date
 from sqlalchemy.orm import relationship
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from ..database import Base
 
@@ -12,12 +12,10 @@ class Invoice(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    date = Column(Date, default=date.today, nullable=False)
+    total = Column(Float, nullable = False)
     pet_id = Column(Integer, ForeignKey("pets.id"), nullable=True)
     appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True)
-
-    amount = Column(Float, nullable=False)
-    description = Column(String, nullable=True)
-    date = Column(DateTime, default=_now_utc)
     paid = Column(Boolean, default=False)
 
     # relationships

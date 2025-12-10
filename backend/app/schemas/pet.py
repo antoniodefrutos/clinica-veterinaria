@@ -1,18 +1,16 @@
-from pydantic import BaseModel
 from typing import Optional
+from pydantic import BaseModel
 
 class PetBase(BaseModel):
-    name: Optional[str] = None
+    name: str
     species: Optional[str] = None
     breed: Optional[str] = None
-    age: Optional[int] = None
+    age: Optional[int] = 0
+    weight: Optional[float] = None
     owner_id: Optional[int] = None
-
-    model_config = {"from_attributes": True}
 
 class PetCreate(PetBase):
     name: str
-    species: str
     owner_id: int
 
 class PetUpdate(BaseModel):
@@ -20,10 +18,11 @@ class PetUpdate(BaseModel):
     species: Optional[str] = None
     breed: Optional[str] = None
     age: Optional[int] = None
+    weight: Optional[float] = None
     owner_id: Optional[int] = None
 
-    model_config = {"from_attributes": True}
-
-class PetOut(PetBase):
+class PetRead(PetBase):
     id: int
-    model_config = {"from_attributes": True}
+
+    class Config:
+        orm_mode = True

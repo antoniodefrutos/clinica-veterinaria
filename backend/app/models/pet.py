@@ -14,3 +14,4 @@ class Pet(Base):
 
     owner_id = Column(Integer, ForeignKey("clients.id"))
     owner = relationship("Client", backref="pets")
+    history = relationship("MedicalHistory", back_populates="pet",cascade="all, delete-orphan")

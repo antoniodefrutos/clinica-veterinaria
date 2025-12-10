@@ -1,70 +1,153 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from passlib.context import CryptContext
-from jose import jwt, JWTError
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-#SECRET_KEY:-------------------------------
-SECRET_KEY = "malaspulgas"
+from jose import JWTError, jwt
+
+# ---------------------------------------------------------------------
+# Configuración seguridad / tokens
+# ---------------------------------------------------------------------
+SECRET_KEY = "malaspulgas"           # <- tu SECRET_KEY (dev)
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 día
-# -----------------------------------------
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 día, ajustar si hace falta
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+# Usamos pbkdf2_sha256 para evitar dependencias nativas de bcrypt en dev.
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-
-# Password utils
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
+# ---------------------------------------------------------------------
+# Helpers de contraseña
+# ---------------------------------------------------------------------
+def hash_password(plain_password: str) -> str:
+    """Hashea una contraseña en texto plano."""
+    return pwd_context.hash(plain_password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifica contraseña contra hash."""
     return pwd_context.verify(plain_password, hashed_password)
 
-
-# JWT utils
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+# ---------------------------------------------------------------------
+# Helpers JWT
+# ---------------------------------------------------------------------
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.utcnow() + (expires_delta if expires_delta is not None else timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-
-def decode_access_token(token: str) -> dict:
+def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials") from e
+    except JWTError:
+        return None
+    
+# ----------------------------
+# FastAPI auth/depends helpers
+# ----------------------------
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
-# Role/permission helpers (simple pattern)
-from typing import Callable
+def _unauth_exc(detail: str = "Could not validate credentials"):
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
-def require_role(role_name: str) -> Callable:
+def get_token_payload(token: str = Depends(oauth2_scheme)) -> dict:
     """
-    Dependencia: Depends(require_role("admin"))
-    Importa get_current_user _localmente_ desde routers.auth para evitar circular imports.
+    Decodifica el JWT y devuelve el payload.
+    Si el token no es válido devuelve 401.
     """
-    # import local para evitar circular imports
-    from app.routers.auth import get_current_user  # import lazy, rompe ciclo
+    payload = decode_access_token(token)
+    if not payload:
+        raise _unauth_exc()
+    return payload
 
-    def _dependency(current_user = Depends(get_current_user)):
-        if current_user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-        # si tu modelo de usuario usa role_id en vez de role, ajusta aquí
-        user_role = getattr(current_user, "role", None) or getattr(current_user, "role_name", None)
-        if user_role != role_name:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges")
-        return current_user
+def get_current_user_payload(payload: dict = Depends(get_token_payload)) -> dict:
+    """
+    Devuelve el payload del usuario actual (por conveniencia).
+    El payload suele contener 'sub' y 'role' según cómo crees el token.
+    """
+    return payload
 
-    return _dependency
+def require_role(role_name: str):
+    """
+    Factory: devuelve una dependencia que exige que payload['role']==role_name.
+    Uso: Depends(require_role('admin'))
+    """
+    def _dep(payload: dict = Depends(get_current_user_payload)):
+        role = payload.get("role")
+        if role != role_name:
+            raise HTTPException(status_code=403, detail="Operation requires role: %s" % role_name)
+        return payload
+    return _dep
 
+# Dependencia concreta para admin (usada por informes.py)
+require_admin = require_role("admin")
 
-def require_admin():
-    return require_role("admin")
+# --- Dependencias / helpers para FastAPI (añadir al final de app/utils/security.py) ---
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+from typing import Optional
 
+# evita import circular: importa get_db desde tu módulo de db
+from ..database import get_db
+from ..models.user import User
+from jose import JWTError
 
+# reuse oauth2 scheme — el tokenUrl coincide con tu router /auth/token
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    """
+    Decodifica token y devuelve el usuario actual de la BDD.
+    Levanta 401 si no hay token válido o el usuario no existe.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = decode_access_token(token)  # función que ya deberías tener aquí
+        # payload debería contener 'sub' con email
+        email: Optional[str] = payload.get("sub") if isinstance(payload, dict) else None
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise credentials_exception
+    return user
+
+def require_role(role_name: str):
+    """
+    Dependency factory: exige un role concreto (p. ej. 'admin').
+    Uso en router: Depends(require_role('admin'))
+    """
+    def inner(user: User = Depends(get_current_user)):
+        if not getattr(user, "role", None) or user.role.name != role_name:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        return user
+    return inner
+
+def require_any_role(*role_names: str):
+    """
+    Dependency factory: permite varios roles (p. ej. 'admin','receptionist').
+    Uso en router: Depends(require_any_role('admin','receptionist'))
+    """
+    def inner(user: User = Depends(get_current_user)):
+        if getattr(user, "role", None) and user.role.name in role_names:
+            return user
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return inner
+
+# conveniencia para admin
+require_admin = require_role("admin")

@@ -7,6 +7,7 @@ class SubscriptionPlan(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
     price = Column(Integer, nullable=False)
     duration_days = Column(Integer, nullable=False)
 
@@ -22,3 +23,5 @@ class Client(Base):
 
     subscription_id = Column(Integer, ForeignKey("subscription_plans.id"))
     subscription = relationship("SubscriptionPlan", backref="clients")
+    history = relationship("MedicalHistory", back_populates="client",cascade="all, delete-orphan")
+    
