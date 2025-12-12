@@ -11,7 +11,7 @@ from ..utils.security import get_current_user
 router = APIRouter(prefix="/informes", tags=["informes"])
 
 @router.get("/ingresos")
-def get_ingresos(fecha_inicio: str, fecha_fin: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def get_ingresos(fecha_inicio: str, fecha_fin: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
     """
     fecha_inicio, fecha_fin: ISO dates YYYY-MM-DD
     Returns:

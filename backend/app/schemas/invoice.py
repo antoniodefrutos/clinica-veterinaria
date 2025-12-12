@@ -1,24 +1,34 @@
-from pydantic import BaseModel
-from datetime import datetime
+from __future__ import annotations
 from typing import Optional, List
-from .payment import PaymentOut
+from pydantic import BaseModel, ConfigDict, Field
+from datetime import date
+
 
 class InvoiceBase(BaseModel):
     client_id: int
-    date: Optional[datetime] = None
-    total: Optional[float] = 0.0
+    date: date
+    total: float
+    pet_id: Optional[int] = None
+    appointment_id: Optional[int] = None
+    paid: bool = False
 
-class InvoiceCreate(InvoiceBase):
-    pass
+    model_config = ConfigDict(from_attributes=True)
+
+class InvoiceCreate(BaseModel):
+    client_id: int
+    date: date
+    total: float
+    pet_id: Optional[int] = None
+    appointment_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class InvoiceUpdate(BaseModel):
-    paid: Optional[bool] = None
     total: Optional[float] = None
+    paid: Optional[bool] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class InvoiceOut(InvoiceBase):
     id: int
-    paid: bool
-    payments: List[PaymentOut] = []
-
-    class Config:
-        from_attributes = True
+    payments: List[dict] = Field(default_factory=list)

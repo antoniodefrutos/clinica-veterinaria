@@ -4,13 +4,11 @@ from pydantic import BaseModel
 class ClientBase(BaseModel):
     dni: str
     name: str
-    email: Optional[str] = None
+    email: str
     phone: Optional[str] = None
 
 class ClientCreate(ClientBase):
-    dni: str
-    name: str
-    phone: Optional[str] = None
+    pass
 
 class ClientUpdate(BaseModel):
     dni: Optional[str] = None
